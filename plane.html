@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inclined Plane Simulation - Physics Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .floating {
+            animation: floating 3s ease-in-out infinite;
+        }
+        
+        @keyframes floating {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .control-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        .simulation-canvas {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .force-vector {
+            stroke-width: 3;
+            marker-end: url(#arrowhead);
+        }
+        
+        .incline-surface {
+            fill: #4a5568;
+            stroke: #2d3748;
+            stroke-width: 2;
+        }
+        
+        .block {
+            fill: #e53e3e;
+            stroke: #c53030;
+            stroke-width: 2;
+        }
+        
+        .measurement-text {
+            fill: white;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+        }
+        
+        .grid-line {
+            stroke: rgba(255, 255, 255, 0.1);
+            stroke-width: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <!-- Background Animation -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+        <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="relative z-10 gradient-bg">
+        <div class="container mx-auto px-6 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="floating">
+                        <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                            <span class="text-xl">🎢</span>
+                        </div>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold">Inclined Plane Simulation</h1>
+                        <p class="text-blue-100 text-sm">Explore Forces on Slopes</p>
+                    </div>
+                </div>
+                <div class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                    <span class="text-sm">🎯 Grade 8-9</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-6 py-8">
+        <div class="grid lg:grid-cols-3 gap-8">
+            <!-- Control Panel -->
+            <div class="lg:col-span-1">
+                <div class="control-panel rounded-xl p-6 mb-6">
+                    <h3 class="text-xl font-semibold mb-4 flex items-center">
+                        <span class="mr-2">⚙️</span>
+                        Controls
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Angle (θ): <span id="angleValue">30°</span></label>
+                            <input type="range" id="angleSlider" min="5" max="85" value="30" 
+                                   class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Mass (kg): <span id="massValue">5.0</span></label>
+                            <input type="range" id="massSlider" min="1" max="20" value="5" step="0.5"
+                                   class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Friction Coefficient: <span id="frictionValue">0.2</span></label>
+                            <input type="range" id="frictionSlider" min="0" max="1" value="0.2" step="0.1"
+                                   class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        
+                        <div class="flex space-x-2">
+                            <button id="startBtn" class="flex-1 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors">
+                                ▶️ Start
+                            </button>
+                            <button id="pauseBtn" class="flex-1 bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg transition-colors">
+                                ⏸️ Pause
+                            </button>
+                            <button id="resetBtn" class="flex-1 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors">
+                                🔄 Reset
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Force Analysis -->
+                <div class="control-panel rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 flex items-center">
+                        <span class="mr-2">📊</span>
+                        Force Analysis
+                    </h3>
+                    
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between">
+                            <span>Weight (mg):</span>
+                            <span id="weightForce" class="font-mono">49.0 N</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Parallel Component:</span>
+                            <span id="parallelForce" class="font-mono text-red-400">24.5 N</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Perpendicular Component:</span>
+                            <span id="perpendicularForce" class="font-mono text-blue-400">42.4 N</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Normal Force:</span>
+                            <span id="normalForce" class="font-mono text-green-400">42.4 N</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Friction Force:</span>
+                            <span id="frictionForceValue" class="font-mono text-yellow-400">8.5 N</span>
+                        </div>
+                        <hr class="border-gray-600">
+                        <div class="flex justify-between font-semibold">
+                            <span>Net Force:</span>
+                            <span id="netForce" class="font-mono text-purple-400">16.0 N</span>
+                        </div>
+                        <div class="flex justify-between font-semibold">
+                            <span>Acceleration:</span>
+                            <span id="acceleration" class="font-mono text-cyan-400">3.2 m/s²</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Simulation Canvas -->
+            <div class="lg:col-span-2">
+                <div class="simulation-canvas rounded-xl p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold">Physics Simulation</h3>
+                        <div class="flex space-x-4 text-sm">
+                            <div class="flex items-center">
+                                <div class="w-3 h-3 bg-red-500 mr-2"></div>
+                                <span>Weight Components</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-3 h-3 bg-blue-500 mr-2"></div>
+                                <span>Normal Force</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-3 h-3 bg-yellow-500 mr-2"></div>
+                                <span>Friction</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <svg id="simulationSVG" width="100%" height="500" viewBox="0 0 800 500">
+                        <!-- Grid -->
+                        <defs>
+                            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                                <path d="M 20 0 L 0 0 0 20" fill="none" class="grid-line"/>
+                            </pattern>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="currentColor"/>
+                            </marker>
+                        </defs>
+                        
+                        <rect width="100%" height="100%" fill="url(#grid)" opacity="0.1"/>
+                        
+                        <!-- Inclined Plane -->
+                        <g id="inclineGroup">
+                            <path id="inclinePath" class="incline-surface" d="M 100 400 L 600 400 L 600 200 Z"/>
+                            <line x1="100" y1="400" x2="600" y2="400" stroke="white" stroke-width="2"/>
+                        </g>
+                        
+                        <!-- Block -->
+                        <g id="blockGroup">
+                            <rect id="block" class="block" x="150" y="360" width="40" height="40" rx="5"/>
+                            <text x="170" y="385" text-anchor="middle" class="measurement-text">m</text>
+                        </g>
+                        
+                        <!-- Force Vectors -->
+                        <g id="forceVectors">
+                            <!-- Weight vector -->
+                            <line id="weightVector" x1="170" y1="380" x2="170" y2="450" stroke="#e53e3e" class="force-vector"/>
+                            <text x="175" y="470" class="measurement-text" fill="#e53e3e">mg</text>
+                            
+                            <!-- Parallel component -->
+                            <line id="parallelVector" x1="170" y1="380" x2="220" y2="420" stroke="#e53e3e" class="force-vector"/>
+                            <text x="225" y="435" class="measurement-text" fill="#e53e3e">mg sin θ</text>
+                            
+                            <!-- Perpendicular component -->
+                            <line id="perpendicularVector" x1="170" y1="380" x2="130" y2="340" stroke="#3182ce" class="force-vector"/>
+                            <text x="85" y="335" class="measurement-text" fill="#3182ce">mg cos θ</text>
+                            
+                            <!-- Normal force -->
+                            <line id="normalVector" x1="170" y1="380" x2="210" y2="340" stroke="#38a169" class="force-vector"/>
+                            <text x="215" y="335" class="measurement-text" fill="#38a169">N</text>
+                            
+                            <!-- Friction force -->
+                            <line id="frictionVector" x1="170" y1="380" x2="130" y2="360" stroke="#d69e2e" class="force-vector"/>
+                            <text x="85" y="355" class="measurement-text" fill="#d69e2e">f</text>
+                        </g>
+                        
+                        <!-- Angle indicator -->
+                        <g id="angleIndicator">
+                            <path id="angleArc" d="M 600 400 A 30 30 0 0 0 600 370" fill="none" stroke="white" stroke-width="2"/>
+                            <text x="615" y="390" class="measurement-text">θ</text>
+                        </g>
+                        
+                        <!-- Measurements -->
+                        <g id="measurements">
+                            <text x="50" y="30" class="measurement-text">
+                                <tspan x="50" dy="0">Velocity: </tspan>
+                                <tspan id="velocityDisplay" fill="#00d4aa">0.0 m/s</tspan>
+                            </text>
+                            <text x="50" y="50" class="measurement-text">
+                                <tspan x="50" dy="0">Position: </tspan>
+                                <tspan id="positionDisplay" fill="#00d4aa">0.0 m</tspan>
+                            </text>
+                            <text x="50" y="70" class="measurement-text">
+                                <tspan x="50" dy="0">Time: </tspan>
+                                <tspan id="timeDisplay" fill="#00d4aa">0.0 s</tspan>
+                            </text>
+                        </g>
+                    </svg>
+                    
+                    <!-- Motion Data -->
+                    <div class="mt-4 p-4 bg-gray-800 rounded-lg">
+                        <h4 class="font-semibold mb-2">Motion Analysis</h4>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <strong>Kinematic Equations:</strong><br>
+                                v = at<br>
+                                s = ½at²<br>
+                                v² = 2as
+                            </div>
+                            <div>
+                                <strong>Force Equations:</strong><br>
+                                F_net = mg sin θ - f<br>
+                                f = μN = μmg cos θ<br>
+                                a = F_net / m
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simulation variables
+        let angle = 30; // degrees
+        let mass = 5; // kg
+        let friction = 0.2; // coefficient
+        let gravity = 9.8; // m/s²
+        
+        let velocity = 0; // m/s
+        let position = 0; // m
+        let time = 0; // s
+        
+        let isRunning = false;
+        let animationId;
+        let lastTime = 0;
+        
+        // DOM elements
+        const angleSlider = document.getElementById('angleSlider');
+        const massSlider = document.getElementById('massSlider');
+        const frictionSlider = document.getElementById('frictionSlider');
+        
+        const angleValue = document.getElementById('angleValue');
+        const massValue = document.getElementById('massValue');
+        const frictionValue = document.getElementById('frictionValue');
+        
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        
+        // SVG elements
+        const blockGroup = document.getElementById('blockGroup');
+        const inclinePath = document.getElementById('inclinePath');
+        const angleArc = document.getElementById('angleArc');
+        const forceVectors = document.getElementById('forceVectors');
+        
+        // Initialize simulation
+        function init() {
+            updateControls();
+            updateSimulation();
+            updateDisplay();
+        }
+        
+        // Update control values
+        function updateControls() {
+            angle = parseFloat(angleSlider.value);
+            mass = parseFloat(massSlider.value);
+            friction = parseFloat(frictionSlider.value);
+            
+            angleValue.textContent = angle + '°';
+            massValue.textContent = mass.toFixed(1);
+            frictionValue.textContent = friction.toFixed(1);
+        }
+        
+        // Calculate forces and motion
+        function calculateForces() {
+            const angleRad = angle * Math.PI / 180;
+            
+            const weight = mass * gravity;
+            const parallelComponent = weight * Math.sin(angleRad);
+            const perpendicularComponent = weight * Math.cos(angleRad);
+            const normalForce = perpendicularComponent;
+            const frictionForce = friction * normalForce;
+            const netForce = parallelComponent - frictionForce;
+            const acceleration = netForce / mass;
+            
+            return {
+                weight,
+                parallelComponent,
+                perpendicularComponent,
+                normalForce,
+                frictionForce,
+                netForce,
+                acceleration
+            };
+        }
+        
+        // Update visual simulation
+        function updateSimulation() {
+            const angleRad = angle * Math.PI / 180;
+            
+            // Update inclined plane
+            const inclineHeight = 300 * Math.tan(angleRad);
+            inclinePath.setAttribute('d', `M 100 400 L 600 400 L 600 ${400 - inclineHeight} Z`);
+            
+            // Update angle arc
+            const arcEndX = 600 - 30 * Math.cos(angleRad);
+            const arcEndY = 400 - 30 * Math.sin(angleRad);
+            angleArc.setAttribute('d', `M 600 400 A 30 30 0 0 0 ${arcEndX} ${arcEndY}`);
+            
+            // Update block position
+            const blockX = 150 + position * Math.cos(angleRad);
+            const blockY = 380 - position * Math.sin(angleRad);
+            blockGroup.setAttribute('transform', `translate(${blockX - 150}, ${blockY - 380})`);
+            
+            // Update force vectors
+            updateForceVectors(blockX, blockY);
+        }
+        
+        // Update force vector display
+        function updateForceVectors(blockX, blockY) {
+            const angleRad = angle * Math.PI / 180;
+            const forces = calculateForces();
+            
+            // Scale factors for visualization
+            const forceScale = 2;
+            
+            // Weight vector (always downward)
+            const weightVector = document.getElementById('weightVector');
+            weightVector.setAttribute('x1', blockX);
+            weightVector.setAttribute('y1', blockY);
+            weightVector.setAttribute('x2', blockX);
+            weightVector.setAttribute('y2', blockY + forces.weight * forceScale);
+            
+            // Parallel component (along incline)
+            const parallelVector = document.getElementById('parallelVector');
+            parallelVector.setAttribute('x1', blockX);
+            parallelVector.setAttribute('y1', blockY);
+            parallelVector.setAttribute('x2', blockX + forces.parallelComponent * forceScale * Math.cos(angleRad));
+            parallelVector.setAttribute('y2', blockY + forces.parallelComponent * forceScale * Math.sin(angleRad));
+            
+            // Perpendicular component (into incline)
+            const perpendicularVector = document.getElementById('perpendicularVector');
+            perpendicularVector.setAttribute('x1', blockX);
+            perpendicularVector.setAttribute('y1', blockY);
+            perpendicularVector.setAttribute('x2', blockX - forces.perpendicularComponent * forceScale * Math.sin(angleRad));
+            perpendicularVector.setAttribute('y2', blockY - forces.perpendicularComponent * forceScale * Math.cos(angleRad));
+            
+            // Normal force (perpendicular to incline, outward)
+            const normalVector = document.getElementById('normalVector');
+            normalVector.setAttribute('x1', blockX);
+            normalVector.setAttribute('y1', blockY);
+            normalVector.setAttribute('x2', blockX + forces.normalForce * forceScale * Math.sin(angleRad));
+            normalVector.setAttribute('y2', blockY - forces.normalForce * forceScale * Math.cos(angleRad));
+            
+            // Friction force (opposite to motion direction)
+            const frictionVector = document.getElementById('frictionVector');
+            frictionVector.setAttribute('x1', blockX);
+            frictionVector.setAttribute('y1', blockY);
+            frictionVector.setAttribute('x2', blockX - forces.frictionForce * forceScale * Math.cos(angleRad));
+            frictionVector.setAttribute('y2', blockY + forces.frictionForce * forceScale * Math.sin(angleRad));
+        }
+        
+        // Update display values
+        function updateDisplay() {
+            const forces = calculateForces();
+            
+            document.getElementById('weightForce').textContent = forces.weight.toFixed(1) + ' N';
+            document.getElementById('parallelForce').textContent = forces.parallelComponent.toFixed(1) + ' N';
+            document.getElementById('perpendicularForce').textContent = forces.perpendicularComponent.toFixed(1) + ' N';
+            document.getElementById('normalForce').textContent = forces.normalForce.toFixed(1) + ' N';
+            document.getElementById('frictionForceValue').textContent = forces.frictionForce.toFixed(1) + ' N';
+            document.getElementById('netForce').textContent = forces.netForce.toFixed(1) + ' N';
+            document.getElementById('acceleration').textContent = forces.acceleration.toFixed(1) + ' m/s²';
+            
+            document.getElementById('velocityDisplay').textContent = velocity.toFixed(1) + ' m/s';
+            document.getElementById('positionDisplay').textContent = position.toFixed(1) + ' m';
+            document.getElementById('timeDisplay').textContent = time.toFixed(1) + ' s';
+        }
+        
+        // Animation loop
+        function animate(currentTime) {
+            if (!isRunning) return;
+            
+            const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
+            lastTime = currentTime;
+            
+            if (deltaTime > 0) {
+                const forces = calculateForces();
+                
+                // Update motion using kinematic equations
+                velocity += forces.acceleration * deltaTime;
+                position += velocity * deltaTime;
+                time += deltaTime;
+                
+                // Stop if block reaches bottom (position > 10m)
+                if (position > 10) {
+                    isRunning = false;
+                    position = 10;
+                    velocity = 0;
+                }
+                
+                updateSimulation();
+                updateDisplay();
+            }
+            
+            if (isRunning) {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+        
+        // Event listeners
+        angleSlider.addEventListener('input', () => {
+            updateControls();
+            updateSimulation();
+            updateDisplay();
+        });
+        
+        massSlider.addEventListener('input', () => {
+            updateControls();
+            updateDisplay();
+        });
+        
+        frictionSlider.addEventListener('input', () => {
+            updateControls();
+            updateDisplay();
+        });
+        
+        startBtn.addEventListener('click', () => {
+            if (!isRunning) {
+                isRunning = true;
+                lastTime = performance.now();
+                animationId = requestAnimationFrame(animate);
+            }
+        });
+        
+        pauseBtn.addEventListener('click', () => {
+            isRunning = false;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        });
+        
+        resetBtn.addEventListener('click', () => {
+            isRunning = false;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            velocity = 0;
+            position = 0;
+            time = 0;
+            
+            updateSimulation();
+            updateDisplay();
+        });
+        
+        // Initialize the simulation
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pendulum Motion Simulation - Physics Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .floating {
+            animation: floating 3s ease-in-out infinite;
+        }
+        
+        @keyframes floating {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .control-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        .simulation-canvas {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .pendulum-bob {
+            fill: #e53e3e;
+            stroke: #c53030;
+            stroke-width: 2;
+        }
+        
+        .pendulum-string {
+            stroke: #f7fafc;
+            stroke-width: 2;
+        }
+        
+        .pivot-point {
+            fill: #4a5568;
+            stroke: #2d3748;
+            stroke-width: 2;
+        }
+        
+        .measurement-text {
+            fill: white;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+        }
+        
+        .grid-line {
+            stroke: rgba(255, 255, 255, 0.1);
+            stroke-width: 1;
+        }
+        
+        .trace-path {
+            stroke: #00d4aa;
+            stroke-width: 2;
+            fill: none;
+            opacity: 0.7;
+        }
+        
+        .force-vector {
+            stroke-width: 3;
+            marker-end: url(#arrowhead);
+        }
+        
+        .energy-bar {
+            stroke: #4a5568;
+            stroke-width: 2;
+            fill: none;
+        }
+        
+        .energy-fill {
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <!-- Background Animation -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+        <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="relative z-10 gradient-bg">
+        <div class="container mx-auto px-6 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="floating">
+                        <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                            <span class="text-xl">🔄</span>
+                        </div>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold">Pendulum Motion Simulation</h1>
+                        <p class="text-blue-100 text-sm">Simple and Compound Pendulums</p>
+                    </div>
+                </div>
+                <div class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                    <span class="text-sm">📐 Grade 10-12</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-6 py-8">
+        <div class="grid lg:grid-cols-3 gap-8">
+            <!-- Control Panel -->
+            <div class="lg:col-span-1">
+                <div class="control-panel rounded-xl p-6 mb-6">
+                    <h3 class="text-xl font-semibold mb-4 flex items-center">
+                        <span class="mr-2">⚙️</span>
+                        Controls
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Length (m): <span id="lengthValue">1.0</span></label>
+                            <input type="range" id="lengthSlider" min="0.5" max="3.0" value="1.0" step="0.1"
+                                   class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Mass (kg): <span id="massValue">1.0</span></label>
+                            <input type="range" id="massSlider" min="0.1" max="5.0" value="1.0" step="0.1"
+                                   class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Initial Angle (°): <span id="angleValue">45</span></label>
+                            <input type="range" id="angleSlider" min="5" max="90" value="45" step="5"
+                                   class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Damping: <span id="dampingValue">0.01</span></label>
+                            <input type="range" id="dampingSlider" min="0" max="0.1" value="0.01" step="0.005"
+                                   class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        
+                        <div class="flex space-x-2">
+                            <button id="startBtn" class="flex-1 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors">
+                                ▶️ Start
+                            </button>
+                            <button id="pauseBtn" class="flex-1 bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg transition-colors">
+                                ⏸️ Pause
+                            </button>
+                            <button id="resetBtn" class="flex-1 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors">
+                                🔄 Reset
+                            </button>
+                        </div>
+                        
+                        <div class="flex space-x-2">
+                            <button id="clearTraceBtn" class="flex-1 bg-purple-600 hover:bg-purple-700 px-3 py-2 rounded-lg transition-colors text-sm">
+                                Clear Trace
+                            </button>
+                            <button id="showVectorsBtn" class="flex-1 bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-lg transition-colors text-sm">
+                                Toggle Forces
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Physics Analysis -->
+                <div class="control-panel rounded-xl p-6 mb-6">
+                    <h3 class="text-xl font-semibold mb-4 flex items-center">
+                        <span class="mr-2">📊</span>
+                        Physics Analysis
+                    </h3>
+                    
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between">
+                            <span>Period (T):</span>
+                            <span id="periodValue" class="font-mono text-cyan-400">2.0 s</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Frequency (f):</span>
+                            <span id="frequencyValue" class="font-mono text-cyan-400">0.5 Hz</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Angular Velocity:</span>
+                            <span id="angularVelocityValue" class="font-mono text-green-400">0.0 rad/s</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Current Angle:</span>
+                            <span id="currentAngleValue" class="font-mono text-yellow-400">45.0°</span>
+                        </div>
+                        <hr class="border-gray-600">
+                        <div class="flex justify-between">
+                            <span>Kinetic Energy:</span>
+                            <span id="kineticEnergyValue" class="font-mono text-red-400">0.0 J</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Potential Energy:</span>
+                            <span id="potentialEnergyValue" class="font-mono text-blue-400">0.0 J</span>
+                        </div>
+                        <div class="flex justify-between font-semibold">
+                            <span>Total Energy:</span>
+                            <span id="totalEnergyValue" class="font-mono text-purple-400">0.0 J</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Energy Visualization -->
+                <div class="control-panel rounded-xl p-6">
+                    <h3 class="text-xl font-semibold mb-4 flex items-center">
+                        <span class="mr-2">⚡</span>
+                        Energy Bars
+                    </h3>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Kinetic Energy</span>
+                                <span id="kineticPercent">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-4">
+                                <div id="kineticBar" class="bg-red-500 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Potential Energy</span>
+                                <span id="potentialPercent">100%</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-4">
+                                <div id="potentialBar" class="bg-blue-500 h-4 rounded-full transition-all duration-300" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Simulation Canvas -->
+            <div class="lg:col-span-2">
+                <div class="simulation-canvas rounded-xl p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold">Pendulum Simulation</h3>
+                        <div class="flex space-x-4 text-sm">
+                            <div class="flex items-center">
+                                <div class="w-3 h-3 bg-cyan-500 mr-2"></div>
+                                <span>Motion Trace</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-3 h-3 bg-red-500 mr-2"></div>
+                                <span>Tension</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-3 h-3 bg-yellow-500 mr-2"></div>
+                                <span>Weight</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <svg id="simulationSVG" width="100%" height="600" viewBox="0 0 800 600">
+                        <!-- Grid -->
+                        <defs>
+                            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                                <path d="M 20 0 L 0 0 0 20" fill="none" class="grid-line"/>
+                            </pattern>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="currentColor"/>
+                            </marker>
+                        </defs>
+                        
+                        <rect width="100%" height="100%" fill="url(#grid)" opacity="0.1"/>
+                        
+                        <!-- Reference circle -->
+                        <circle id="referenceCircle" cx="400" cy="100" r="200" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="5,5"/>
+                        
+                        <!-- Motion trace -->
+                        <path id="motionTrace" class="trace-path" d=""/>
+                        
+                        <!-- Pendulum string -->
+                        <line id="pendulumString" class="pendulum-string" x1="400" y1="100" x2="400" y2="300"/>
+                        
+                        <!-- Pivot point -->
+                        <circle id="pivotPoint" class="pivot-point" cx="400" cy="100" r="8"/>
+                        
+                        <!-- Pendulum bob -->
+                        <circle id="pendulumBob" class="pendulum-bob" cx="400" cy="300" r="15"/>
+                        
+                        <!-- Force vectors -->
+                        <g id="forceVectors" style="display: none;">
+                            <!-- Tension vector -->
+                            <line id="tensionVector" x1="400" y1="300" x2="400" y2="250" stroke="#e53e3e" class="force-vector"/>
+                            <text x="410" y="270" class="measurement-text" fill="#e53e3e">T</text>
+                            
+                            <!-- Weight vector -->
+                            <line id="weightVector" x1="400" y1="300" x2="400" y2="350" stroke="#d69e2e" class="force-vector"/>
+                            <text x="410" y="340" class="measurement-text" fill="#d69e2e">mg</text>
+                            
+                            <!-- Radial component -->
+                            <line id="radialComponent" x1="400" y1="300" x2="400" y2="260" stroke="#38a169" class="force-vector"/>
+                            <text x="410" y="255" class="measurement-text" fill="#38a169">mg cos θ</text>
+                            
+                            <!-- Tangential component -->
+                            <line id="tangentialComponent" x1="400" y1="300" x2="440" y2="300" stroke="#3182ce" class="force-vector"/>
+                            <text x="445" y="295" class="measurement-text" fill="#3182ce">mg sin θ</text>
+                        </g>
+                        
+                        <!-- Angle indicator -->
+                        <g id="angleIndicator">
+                            <path id="angleArc" d="M 400 130 A 30 30 0 0 1 421 145" fill="none" stroke="white" stroke-width="2"/>
+                            <text x="430" y="140" class="measurement-text">θ</text>
+                        </g>
+                        
+                        <!-- Measurements -->
+                        <g id="measurements">
+                            <text x="50" y="30" class="measurement-text">
+                                <tspan x="50" dy="0">Time: </tspan>
+                                <tspan id="timeDisplay" fill="#00d4aa">0.0 s</tspan>
+                            </text>
+                            <text x="50" y="50" class="measurement-text">
+                                <tspan x="50" dy="0">Oscillations: </tspan>
+                                <tspan id="oscillationCount" fill="#00d4aa">0</tspan>
+                            </text>
+                            <text x="50" y="70" class="measurement-text">
+                                <tspan x="50" dy="0">Max Angle: </tspan>
+                                <tspan id="maxAngleDisplay" fill="#00d4aa">45.0°</tspan>
+                            </text>
+                        </g>
+                    </svg>
+                    
+                    <!-- Physics Equations -->
+                    <div class="mt-4 p-4 bg-gray-800 rounded-lg">
+                        <h4 class="font-semibold mb-2">Pendulum Physics</h4>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <strong>Period Equation:</strong><br>
+                                T = 2π√(l/g)<br>
+                                <strong>Small Angle Approximation:</strong><br>
+                                sin θ ≈ θ (for θ < 15°)
+                            </div>
+                            <div>
+                                <strong>Energy Conservation:</strong><br>
+                                E = KE + PE = constant<br>
+                                KE = ½mv²<br>
+                                PE = mgh = mgl(1 - cos θ)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simulation variables
+        let length = 1.0; // m
+        let mass = 1.0; // kg
+        let gravity = 9.81; // m/s²
+        let damping = 0.01; // damping coefficient
+        
+        let angle = Math.PI / 4; // current angle in radians
+        let angularVelocity = 0; // rad/s
+        let initialAngle = Math.PI / 4; // initial angle
+        
+        let time = 0; // s
+        let oscillationCount = 0;
+        let lastAngleSign = 1;
+        
+        let isRunning = false;
+        let showVectors = false;
+        let animationId;
+        let lastTime = 0;
+        
+        // Trace variables
+        let tracePoints = [];
+        let maxTracePoints = 200;
+        
+        // DOM elements
+        const lengthSlider = document.getElementById('lengthSlider');
+        const massSlider = document.getElementById('massSlider');
+        const angleSlider = document.getElementById('angleSlider');
+        const dampingSlider = document.getElementById('dampingSlider');
+        
+        const lengthValue = document.getElementById('lengthValue');
+        const massValue = document.getElementById('massValue');
+        const angleValue = document.getElementById('angleValue');
+        const dampingValue = document.getElementById('dampingValue');
+        
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const clearTraceBtn = document.getElementById('clearTraceBtn');
+        const showVectorsBtn = document.getElementById('showVectorsBtn');
+        
+        // SVG elements
+        const pendulumString = document.getElementById('pendulumString');
+        const pendulumBob = document.getElementById('pendulumBob');
+        const referenceCircle = document.getElementById('referenceCircle');
+        const motionTrace = document.getElementById('motionTrace');
+        const forceVectors = document.getElementById('forceVectors');
+        const angleArc = document.getElementById('angleArc');
+        
+        // Initialize simulation
+        function init() {
+            updateControls();
+            updateSimulation();
+            updateDisplay();
+            updateEnergyBars();
+        }
+        
+        // Update control values
+        function updateControls() {
+            length = parseFloat(lengthSlider.value);
+            mass = parseFloat(massSlider.value);
+            initialAngle = parseFloat(angleSlider.value) * Math.PI / 180;
+            damping = parseFloat(dampingSlider.value);
+            
+            lengthValue.textContent = length.toFixed(1);
+            massValue.textContent = mass.toFixed(1);
+            angleValue.textContent = Math.round(parseFloat(angleSlider.value));
+            dampingValue.textContent = damping.toFixed(3);
+            
+            // Update reference circle
+            const radius = length * 200; // Scale for display
+            referenceCircle.setAttribute('r', radius);
+        }
+        
+        // Calculate pendulum physics
+        function calculatePhysics() {
+            const period = 2 * Math.PI * Math.sqrt(length / gravity);
+            const frequency = 1 / period;
+            
+            // Energy calculations
+            const height = length * (1 - Math.cos(angle));
+            const potentialEnergy = mass * gravity * height;
+            const kineticEnergy = 0.5 * mass * Math.pow(angularVelocity * length, 2);
+            const totalEnergy = potentialEnergy + kineticEnergy;
+            
+            // Maximum energy (at initial angle)
+            const maxHeight = length * (1 - Math.cos(initialAngle));
+            const maxPotentialEnergy = mass * gravity * maxHeight;
+            
+            return {
+                period,
+                frequency,
+                potentialEnergy,
+                kineticEnergy,
+                totalEnergy,
+                maxPotentialEnergy,
+                height
+            };
+        }
+        
+        // Update visual simulation
+        function updateSimulation() {
+            const radius = length * 200; // Scale for display
+            const centerX = 400;
+            const centerY = 100;
+            
+            // Calculate bob position
+            const bobX = centerX + radius * Math.sin(angle);
+            const bobY = centerY + radius * Math.cos(angle);
+            
+            // Update pendulum string
+            pendulumString.setAttribute('x2', bobX);
+            pendulumString.setAttribute('y2', bobY);
+            
+            // Update pendulum bob
+            pendulumBob.setAttribute('cx', bobX);
+            pendulumBob.setAttribute('cy', bobY);
+            
+            // Update reference circle
+            referenceCircle.setAttribute('r', radius);
+            
+            // Update angle indicator
+            updateAngleIndicator(centerX, centerY);
+            
+            // Update force vectors if visible
+            if (showVectors) {
+                updateForceVectors(bobX, bobY);
+            }
+            
+            // Update motion trace
+            updateTrace(bobX, bobY);
+        }
+        
+        // Update angle indicator
+        function updateAngleIndicator(centerX, centerY) {
+            const arcRadius = 30;
+            const startX = centerX;
+            const startY = centerY + arcRadius;
+            const endX = centerX + arcRadius * Math.sin(angle);
+            const endY = centerY + arcRadius * Math.cos(angle);
+            
+            const largeArcFlag = Math.abs(angle) > Math.PI ? 1 : 0;
+            const sweepFlag = angle > 0 ? 1 : 0;
+            
+            const arcPath = `M ${startX} ${startY} A ${arcRadius} ${arcRadius} 0 ${largeArcFlag} ${sweepFlag} ${endX} ${endY}`;
+            angleArc.setAttribute('d', arcPath);
+        }
+        
+        // Update force vectors
+        function updateForceVectors(bobX, bobY) {
+            const forceScale = 30; // Scale for visualization
+            
+            // Tension vector (along string toward pivot)
+            const tensionX = bobX - forceScale * Math.sin(angle);
+            const tensionY = bobY - forceScale * Math.cos(angle);
+            document.getElementById('tensionVector').setAttribute('x2', tensionX);
+            document.getElementById('tensionVector').setAttribute('y2', tensionY);
+            
+            // Weight vector (downward)
+            const weightX = bobX;
+            const weightY = bobY + forceScale;
+            document.getElementById('weightVector').setAttribute('x2', weightX);
+            document.getElementById('weightVector').setAttribute('y2', weightY);
+            
+            // Radial component (mg cos θ)
+            const radialX = bobX - forceScale * Math.cos(angle) * Math.sin(angle);
+            const radialY = bobY - forceScale * Math.cos(angle) * Math.cos(angle);
+            document.getElementById('radialComponent').setAttribute('x2', radialX);
+            document.getElementById('radialComponent').setAttribute('y2', radialY);
+            
+            // Tangential component (mg sin θ)
+            const tangentialX = bobX + forceScale * Math.sin(angle) * Math.cos(angle);
+            const tangentialY = bobY + forceScale * Math.sin(angle) * Math.sin(angle);
+            document.getElementById('tangentialComponent').setAttribute('x2', tangentialX);
+            document.getElementById('tangentialComponent').setAttribute('y2', tangentialY);
+            
+            // Update vector positions
+            document.getElementById('tensionVector').setAttribute('x1', bobX);
+            document.getElementById('tensionVector').setAttribute('y1', bobY);
+            document.getElementById('weightVector').setAttribute('x1', bobX);
+            document.getElementById('weightVector').setAttribute('y1', bobY);
+            document.getElementById('radialComponent').setAttribute('x1', bobX);
+            document.getElementById('radialComponent').setAttribute('y1', bobY);
+            document.getElementById('tangentialComponent').setAttribute('x1', bobX);
+            document.getElementById('tangentialComponent').setAttribute('y1', bobY);
+        }
+        
+        // Update motion trace
+        function updateTrace(bobX, bobY) {
+            tracePoints.push({ x: bobX, y: bobY });
+            
+            if (tracePoints.length > maxTracePoints) {
+                tracePoints.shift();
+            }
+            
+            if (tracePoints.length > 1) {
+                let pathData = `M ${tracePoints[0].x} ${tracePoints[0].y}`;
+                for (let i = 1; i < tracePoints.length; i++) {
+                    pathData += ` L ${tracePoints[i].x} ${tracePoints[i].y}`;
+                }
+                motionTrace.setAttribute('d', pathData);
+            }
+        }
+        
+        // Update display values
+        function updateDisplay() {
+            const physics = calculatePhysics();
+            
+            document.getElementById('periodValue').textContent = physics.period.toFixed(2) + ' s';
+            document.getElementById('frequencyValue').textContent = physics.frequency.toFixed(2) + ' Hz';
+            document.getElementById('angularVelocityValue').textContent = angularVelocity.toFixed(2) + ' rad/s';
+            document.getElementById('currentAngleValue').textContent = (angle * 180 / Math.PI).toFixed(1) + '°';
+            
+            document.getElementById('kineticEnergyValue').textContent = physics.kineticEnergy.toFixed(2) + ' J';
+            document.getElementById('potentialEnergyValue').textContent = physics.potentialEnergy.toFixed(2) + ' J';
+            document.getElementById('totalEnergyValue').textContent = physics.totalEnergy.toFixed(2) + ' J';
+            
+            document.getElementById('timeDisplay').textContent = time.toFixed(1) + ' s';
+            document.getElementById('oscillationCount').textContent = oscillationCount;
+            document.getElementById('maxAngleDisplay').textContent = (initialAngle * 180 / Math.PI).toFixed(1) + '°';
+        }
+        
+        // Update energy bars
+        function updateEnergyBars() {
+            const physics = calculatePhysics();
+            const maxEnergy = physics.maxPotentialEnergy;
+            
+            if (maxEnergy > 0) {
+                const kineticPercent = (physics.kineticEnergy / maxEnergy) * 100;
+                const potentialPercent = (physics.potentialEnergy / maxEnergy) * 100;
+                
+                document.getElementById('kineticBar').style.width = kineticPercent + '%';
+                document.getElementById('potentialBar').style.width = potentialPercent + '%';
+                
+                document.getElementById('kineticPercent').textContent = Math.round(kineticPercent) + '%';
+                document.getElementById('potentialPercent').textContent = Math.round(potentialPercent) + '%';
+            }
+        }
+        
+        // Animation loop
+        function animate(currentTime) {
+            if (!isRunning) return;
+            
+            const deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
+            lastTime = currentTime;
+            
+            if (deltaTime > 0 && deltaTime < 0.1) { // Prevent large time steps
+                // Numerical integration using Runge-Kutta 4th order
+                const dt = deltaTime;
+                
+                // Calculate angular acceleration
+                const angularAcceleration = -(gravity / length) * Math.sin(angle) - damping * angularVelocity;
+                
+                // Update angle and angular velocity
+                const k1_theta = angularVelocity;
+                const k1_omega = angularAcceleration;
+                
+                const k2_theta = angularVelocity + 0.5 * dt * k1_omega;
+                const k2_omega = -(gravity / length) * Math.sin(angle + 0.5 * dt * k1_theta) - damping * (angularVelocity + 0.5 * dt * k1_omega);
+                
+                const k3_theta = angularVelocity + 0.5 * dt * k2_omega;
+                const k3_omega = -(gravity / length) * Math.sin(angle + 0.5 * dt * k2_theta) - damping * (angularVelocity + 0.5 * dt
